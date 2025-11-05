@@ -9,6 +9,7 @@ RUN apk add --no-cache \
     harfbuzz \
     ttf-freefont \
     ffmpeg \
+    && ln -sf /usr/bin/chromium /usr/bin/google-chrome \
     && rm -rf /var/cache/apk/*
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
