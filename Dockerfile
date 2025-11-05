@@ -2,7 +2,6 @@ FROM n8nio/n8n:latest
 
 USER root
 
-# Install Chromium dan dependencies untuk Puppeteer di Alpine
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -12,8 +11,7 @@ RUN apk add --no-cache \
     ffmpeg \
     && rm -rf /var/cache/apk/*
 
-# Set path Chromium agar dikenali Puppeteer
-ENV PUPPETEER_EXECUTABLE_PATH="/usr/bin/chromium"
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 USER node
 
