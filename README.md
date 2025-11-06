@@ -83,6 +83,30 @@ docker-compose up -d --build
 
 ## Troubleshooting
 
+### Puppeteer Error "Running as root without --no-sandbox"
+
+**Mengapa error ini muncul di VPS tapi tidak di local?**
+
+Error ini biasanya terjadi karena perbedaan konfigurasi antara environment local dan VPS:
+- VPS memiliki security policies lebih ketat (AppArmor/SELinux)
+- Docker runtime atau versi berbeda
+- Kernel security modules berbeda
+
+**Solusi:**
+
+Repository ini sudah include **automatic runtime patch** yang akan:
+1. Otomatis mendeteksi environment Docker
+2. Patch `n8n-nodes-puppeteer` saat container startup
+3. Inject Chrome flags yang diperlukan (`--no-sandbox`, dll)
+
+Verifikasi patch berhasil:
+```bash
+docker logs n8n 2>&1 | grep -i "patch"
+# Harus muncul: ✓ Puppeteer node patched for Docker
+```
+
+**Jika masih error**, lihat [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) untuk panduan lengkap.
+
 ### Puppeteer Error "Browser not found"
 
 Jika Puppeteer tidak menemukan browser, pastikan environment variable sudah benar di Dockerfile:
