@@ -36,24 +36,35 @@ else
 fi
 
 # Patch n8n-nodes-puppeteer to add --no-sandbox flags
-PUPPETEER_NODE_JS="/opt/n8n-custom-nodes/node_modules/n8n-nodes-puppeteer/dist/nodes/Puppeteer/Puppeteer.node.js"
+# Need to patch BOTH .ts and .js files as n8n might use either one
+PUPPETEER_BASE_PATH="/opt/n8n-custom-nodes/node_modules/n8n-nodes-puppeteer"
 
-if [ -f "$PUPPETEER_NODE_JS" ]; then
-    echo "Patching n8n-nodes-puppeteer for Docker compatibility..."
+patch_puppeteer_file() {
+    local file_path="$1"
+    local file_type="$2"
+    
+    if [ ! -f "$file_path" ]; then
+        return 1
+    fi
     
     # Check if already patched
-    if ! grep -q "no-sandbox" "$PUPPETEER_NODE_JS"; then
-        # Create backup
-        cp "$PUPPETEER_NODE_JS" "$PUPPETEER_NODE_JS.bak"
-        
-        # Patch the file to add default args
-        # Find "const browser = await puppeteer.launch" and inject args
-        node -e "
+    if grep -q "no-sandbox" "$file_path"; then
+        echo "  ✓ $file_type already patched"
+        return 0
+    fi
+    
+    echo "  → Patching $file_type..."
+    
+    # Create backup
+    cp "$file_path" "$file_path.bak"
+    
+    # Apply patch using Node.js
+    node -e "
 const fs = require('fs');
-const filePath = '$PUPPETEER_NODE_JS';
+const filePath = '$file_path';
 let content = fs.readFileSync(filePath, 'utf8');
 
-// Add args to puppeteer.launch calls
+// Docker-safe Chrome arguments
 const dockerArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -64,28 +75,49 @@ const dockerArgs = [
     '--no-zygote'
 ];
 
-// Pattern 1: launch with object argument
+const argsString = JSON.stringify(dockerArgs);
+
+// Pattern 1: puppeteer.launch({ existing options })
 content = content.replace(
     /puppeteer\.launch\(\s*\{/g,
-    \`puppeteer.launch({ args: \${JSON.stringify(dockerArgs)},\`
+    \`puppeteer.launch({ args: \${argsString},\`
 );
 
-// Pattern 2: launch with empty/no arguments  
+// Pattern 2: puppeteer.launch() with no args
 content = content.replace(
     /puppeteer\.launch\(\s*\)/g,
-    \`puppeteer.launch({ args: \${JSON.stringify(dockerArgs)} })\`
+    \`puppeteer.launch({ args: \${argsString} })\`
+);
+
+// Pattern 3: await puppeteer.launch (with optional whitespace)
+content = content.replace(
+    /(await\s+puppeteer\.launch\()(\s*\{)/g,
+    \`\$1{ args: \${argsString},\`
 );
 
 fs.writeFileSync(filePath, content, 'utf8');
-console.log('Patch applied successfully');
-"
-        
-        echo "✓ Puppeteer node patched for Docker"
-    else
-        echo "✓ Puppeteer node already patched"
-    fi
+" && echo "    ✓ Patch applied to $file_type" || echo "    ✗ Failed to patch $file_type"
+}
+
+echo "Patching n8n-nodes-puppeteer for Docker compatibility..."
+
+# Try to patch both JS and TS files
+PATCHED=0
+
+# Patch dist/nodes/Puppeteer/Puppeteer.node.js
+if patch_puppeteer_file "$PUPPETEER_BASE_PATH/dist/nodes/Puppeteer/Puppeteer.node.js" "JS file"; then
+    PATCHED=1
+fi
+
+# Patch nodes/Puppeteer/Puppeteer.node.ts (if exists)
+if patch_puppeteer_file "$PUPPETEER_BASE_PATH/nodes/Puppeteer/Puppeteer.node.ts" "TS file"; then
+    PATCHED=1
+fi
+
+if [ $PATCHED -eq 0 ]; then
+    echo "  ⚠ Warning: n8n-nodes-puppeteer files not found yet"
 else
-    echo "⚠ Warning: n8n-nodes-puppeteer not found yet (will be available after first start)"
+    echo "✓ Puppeteer patching complete"
 fi
 
 print_banner
