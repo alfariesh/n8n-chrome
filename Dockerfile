@@ -22,17 +22,19 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     CHROME_BIN=/usr/bin/chromium-browser \
     PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu"
 
+# Create directory and copy puppeteer wrapper FIRST
+RUN mkdir -p /opt/n8n-custom-nodes
+COPY puppeteer-wrapper.js /opt/n8n-custom-nodes/puppeteer-wrapper.js
+
 # Install n8n-nodes-puppeteer in a permanent location
-RUN mkdir -p /opt/n8n-custom-nodes && \
-    cd /opt/n8n-custom-nodes && \
+RUN cd /opt/n8n-custom-nodes && \
     npm install n8n-nodes-puppeteer && \
     chown -R node:node /opt/n8n-custom-nodes
 
-# Copy puppeteer wrapper and custom entrypoint
-COPY puppeteer-wrapper.js /opt/n8n-custom-nodes/puppeteer-wrapper.js
+# Copy custom entrypoint
 COPY docker-custom-entrypoint.sh /docker-custom-entrypoint.sh
 RUN chmod +x /docker-custom-entrypoint.sh && \
-    chown node:node /docker-custom-entrypoint.sh /opt/n8n-custom-nodes/puppeteer-wrapper.js
+    chown node:node /docker-custom-entrypoint.sh
 
 USER node
 
