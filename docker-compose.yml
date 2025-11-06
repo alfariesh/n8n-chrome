@@ -48,6 +48,8 @@ services:
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
       - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - CHROME_BIN=/usr/bin/chromium-browser
     volumes:
       - n8n_data:/home/node/.n8n
       - ./custom-nodes:/home/node/.n8n/custom

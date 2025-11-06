@@ -18,7 +18,9 @@ RUN apk add --no-cache \
 
 # Tell Puppeteer to use installed Chrome instead of downloading it
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    CHROME_BIN=/usr/bin/chromium-browser \
+    PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu"
 
 # Install n8n-nodes-puppeteer in a permanent location
 RUN mkdir -p /opt/n8n-custom-nodes && \
