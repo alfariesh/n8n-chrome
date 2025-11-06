@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nUpdate Docker configuration and add Puppeteer config\n\n- Remove .dockerignore file\n- Update .gitignore with new patterns\n- Modify Dockerfile and docker-compose.yml\n- Update docker-custom-entrypoint.sh\n- Add PUPPETEER_CONFIG.md documentation\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
