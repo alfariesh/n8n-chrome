@@ -17,11 +17,14 @@ RUN apk add --no-cache \
     bash \
     curl
 
-# Install n8n Puppeteer node
-RUN npm install -g n8n-nodes-puppeteer --unsafe-perm || true
+# Install n8n Puppeteer node and required plugins
+RUN npm install -g n8n-nodes-puppeteer puppeteer-extra-plugin-user-preferences --unsafe-perm || true
 
 # Configure Puppeteer to use system Chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 USER node
+
+# Start n8n
+CMD ["n8n"]
