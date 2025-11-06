@@ -1,30 +1,27 @@
+# Dockerfile - n8n dengan Puppeteer support
 FROM n8nio/n8n:latest
 
 USER root
 
-# Install dependencies + chromium + ffmpeg
+# Install system dependencies for Chrome/Puppeteer
+# These libraries are required by Chromium on Alpine Linux
 RUN apk add --no-cache \
+    ca-certificates \
     chromium \
     nss \
     freetype \
     harfbuzz \
     ttf-freefont \
-    ffmpeg \
-    dumb-init \
-    && ln -sf /usr/bin/chromium /usr/bin/google-chrome \
-    && mkdir -p /home/node/.cache/puppeteer \
-    && chown -R node:node /home/node
+    dbus \
+    udev \
+    bash \
+    curl
 
-# Set Puppeteer path & prevent auto-download
-ENV PUPPETEER_EXECUTABLE_PATH="/usr/bin/chromium"
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV N8N_PUPPETEER_NO_SANDBOX=true
-ENV NODE_ENV=production
+# Install n8n Puppeteer node
+RUN npm install -g n8n-nodes-puppeteer --unsafe-perm || true
+
+# Configure Puppeteer to use system Chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 USER node
-
-WORKDIR /home/node
-EXPOSE 5678
-
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["n8n", "start", "--tunnel", "--no-sandbox", "--disable-setuid-sandbox"]

@@ -1,16 +1,178 @@
+version: '3.9'
+
 services:
-  svr_n8n:
-    build: .
-    image: n8n-custom-ffmpeg
-    container_name: n8n_container
+  # PostgreSQL Database
+  postgres:
+    env_file:
+      - .env
+    image: postgres:16-alpine
+    container_name: n8n_postgres
+    restart: unless-stopped
     environment:
-      - NODE_OPTIONS=--max_old_space_size=4096
-      - N8N_SECURE_COOKIE=false
-      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
-      - N8N_PORT=5678
-      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
-    ports:
-      - "5678:5678"
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - ./n8n_data:/home/node/.n8n
-      - /tmp:/tmp
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - n8n_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - 5432
+
+  # Redis Cache & Queue (optional but recommended)
+  redis:
+    image: redis:7-alpine
+    container_name: n8n_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - n8n_network
+    expose:
+      - 6379
+    command: redis-server --appendonly yes
+
+  # n8n Main Instance
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT}:5678"
+    environment:
+      # Database Configuration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${DB_NAME}
+      DB_POSTGRESDB_USER: ${DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD}
+      DB_POSTGRESDB_SSL: ${DB_SSL}
+
+      # n8n Core Configuration
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+
+      # Authentication
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE}
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+
+      # Environment
+      NODE_ENV: ${NODE_ENV}
+      STAGE: ${NODE_ENV}
+
+      # Timezone Configuration
+      TZ: ${TZ}
+      GENERIC_TIMEZONE: ${TZ}
+
+      # Execution Configuration
+      EXECUTION_TIMEOUT: 3600
+      EXECUTION_DATA_SAVE_ON_ERROR: all
+      EXECUTION_DATA_SAVE_ON_SUCCESS: all
+
+      # External Functions/Libraries
+      NODE_FUNCTION_ALLOW_EXTERNAL: "axios,qs,lodash,moment,crypto-js"
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL}
+
+      # Webhook Configuration (uncomment and configure if needed)
+      # WEBHOOK_URL: https://your-domain.com/webhook
+      # WEBHOOK_TUNNEL_URL: https://your-domain.com/webhook_tunnel
+
+      # Queue Mode (uncomment untuk enable distributed execution)
+      # EXECUTION_MODE: queue
+      # QUEUE_TYPE: redis
+      # REDIS_HOST: redis
+      # REDIS_PORT: 6379
+
+      # Puppeteer Configuration (uses system Chromium from Dockerfile)
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - n8n_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    expose:
+      - 5678
+
+    # Security options for Puppeteer/Chromium
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_ADMIN
+
+    # Shared memory for Chromium
+    shm_size: 1gb
+
+  # n8n Worker Nodes (uncomment untuk distributed execution)
+  # n8n-worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: n8n_worker_1
+  #   restart: unless-stopped
+  #   environment:
+  #     DB_TYPE: postgresdb
+  #     DB_POSTGRESDB_HOST: postgres
+  #     DB_POSTGRESDB_PORT: 5432
+  #     DB_POSTGRESDB_DATABASE: ${DB_NAME}
+  #     DB_POSTGRESDB_USER: ${DB_USER}
+  #     DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD}
+  #
+  #     EXECUTION_MODE: queue
+  #     QUEUE_TYPE: redis
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #
+  #     N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+  #     NODE_ENV: ${NODE_ENV}
+  #
+  #     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+  #     PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+  #
+  #   volumes:
+  #     - n8n_data:/home/node/.n8n
+  #   networks:
+  #     - n8n_network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+  #   shm_size: 1gb
+  #   resources:
+  #     limits:
+  #       cpus: '1'
+  #       memory: 2G
+
+volumes:
+  n8n_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  n8n_network:
+    driver: bridge
