@@ -20,8 +20,7 @@ Module.prototype.require = function (id) {
         '--disable-gpu',
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
-        '--no-zygote',
-        '--single-process' // Additional flag for root execution
+        '--no-zygote'
       ];
       
       // Merge with existing args
